@@ -3,7 +3,7 @@
 [ "$DEBUG" ] && set -x
 set -e
 
-command -v tput >/dev/null || tput() { printf ''; }
+([ ! "$NO_COLOUR" ] && command -v tput >/dev/null) || tput() { printf ''; }
 
 GREEN=$(tput setaf 2)
 RESET=$(tput sgr0)
