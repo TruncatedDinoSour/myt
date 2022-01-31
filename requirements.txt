@@ -1,0 +1,10 @@
+readline
+configparser
+typing
+requests
+colorama
+python-mpv
+plumbum
+pyfzf
+yt-dlp
+

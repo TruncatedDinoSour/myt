@@ -1,0 +1,479 @@
+#!/usr/bin/env python3
+# -*- coding: UTF-8 -*-
+"""A menu to pick youtube videos"""
+
+import curses
+import logging
+import os
+import random
+import readline
+import sys
+import urllib
+import warnings
+from atexit import register as fn_register
+from configparser import ConfigParser
+from re import findall as regex_find_all
+from threading import Thread
+from traceback import print_exc as print_latest_traceback
+from typing import Any, Optional
+from urllib.parse import quote as urlencode
+
+import requests  # type: ignore
+from colorama import Fore, Style  # type: ignore
+from colorama import init as colorama_init
+from mpv import MPV  # type: ignore
+from mpv import ShutdownError as MPVShutdownError  # type: ignore
+from plumbum import ProcessExecutionError  # type: ignore
+from pyfzf import FzfPrompt  # type: ignore
+from yt_dlp import DownloadError, YoutubeDL  # type: ignore
+
+MIN_PYTHON = (3, 8)
+
+if sys.version_info < MIN_PYTHON:
+    sys.exit(
+        "CRITIAL: Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]} or later is required to run this application.\n"
+    )
+
+colorama_init()
+warnings.filterwarnings("error", category=Warning)
+
+CONFIG_FILE: str = os.path.join(os.path.expanduser("~/.config"), "myt.conf")
+DEFAULT_CONFIG: list[str] = [
+    "[history]",
+    "history_file = ~/.cache/.myt_history",
+    "history_length = 1000",
+    "",
+    "[resources]",
+    "youtube_url = https://www.youtube.com/",
+    "search_url = https://vid.puffyan.us/search/",
+    "",
+    "[messages]",
+    "print_debug = yes",
+    "",
+]
+
+SHARED_CONFIG: dict[str, Any] = {}
+
+YTDL_LOGGER: logging.Logger = logging.getLogger("ytdl-ignore")
+YTDL_LOGGER.disabled = True
+
+YTDL_OPTS: dict[str, Any] = {"logger": YTDL_LOGGER}
+
+
+class RestartProgramError(Exception):
+    """Exception raised when requiring program to restart its main function"""
+
+
+def new_mpv_client() -> MPV:
+    """Create a new mpv.MPV() instance"""
+
+    return MPV(
+        script_opts="ytdl_hook-ytdl_path=yt-dlp",
+        ytdl=True,
+        input_default_bindings=True,
+        input_vo_keyboard=True,
+        osc=True,
+        config=True,
+    )
+
+
+def die(msg: str) -> int:
+    """Print a message to stderr and return error code"""
+
+    sys.stderr.write(
+        f"{Fore.LIGHTBLUE_EX}[{Fore.LIGHTRED_EX}ERROR{Fore.LIGHTBLUE_EX}]{Fore.RESET} {msg}\n"
+    )
+    return 1
+
+
+def ask_user(prompt: str, valid_options: tuple[str, ...] = ()) -> str:
+    """Ask user for input and parse it as an answer"""
+
+    try:
+        inpt: str = input(prompt).strip().upper()[0]
+
+        if inpt not in valid_options and valid_options:
+            sys.exit(die(f"{inpt!r} is not a valid option"))
+
+        return inpt
+    except IndexError:
+        sys.exit(die("Cannot leave answer empty"))
+
+
+def debug(msg: str) -> None:
+    """Print debug message"""
+
+    if not SHARED_CONFIG.get("print_debug", True):
+        return
+
+    print(f"{Fore.LIGHTBLACK_EX}** DEBUG: {msg}{Fore.RESET}")
+
+
+def make_new_config() -> None:
+    """Make new configuration file"""
+
+    debug(f"Making new config in {CONFIG_FILE!r}")
+
+    with open(CONFIG_FILE, "w", encoding="utf-8") as config:
+        for line in DEFAULT_CONFIG:
+            config.write(line + "\n")
+
+
+def view_thumbnail(video_json: dict[str, Any], video_url: str, next_fn: Any) -> Any:
+    """View thumbnail in default image viewer"""
+
+    filename: str = f"/tmp/myt_thumbnail_{random.randint(0, 999999999)}"
+
+    debug(f"Downloading {video_json[video_url]['thumbnail']!r} to {filename!r}")
+    urllib.request.urlretrieve(video_json[video_url]["thumbnail"], filename=filename)  # type: ignore
+
+    thumbnail_mpv: MPV = new_mpv_client()
+    thumbnail_mpv.loop_file = True
+
+    thumbnail_mpv.play(filename)
+
+    thumbnail_mpv.wait_for_shutdown()
+    thumbnail_mpv.terminate()
+    del thumbnail_mpv
+
+    os.remove(filename)
+
+    return next_fn()
+
+
+def pick_video(
+    video_json: dict[str, Any], __picked_video_url: Optional[str] = None
+) -> str:
+    """Pick a video"""
+
+    if __picked_video_url is not None and not __picked_video_url.strip():
+        sys.exit(die("__picked_video_url cannot be falsy"))
+
+    picked_video_url: str = (
+        (
+            FzfPrompt()
+            .prompt(
+                (
+                    f"{url} | {video_json[url]['title']} | {video_json[url]['channel_id']}"
+                    for url in video_json
+                )
+            )[0]
+            .split(" ", 1)[0]
+        )
+        if __picked_video_url is None
+        else __picked_video_url
+    )
+
+    picked_video_subcommands: dict = {
+        "N": {"fn": pick_video, "args": (video_json,)},
+        "T": {
+            "fn": view_thumbnail,
+            "args": (
+                video_json,
+                picked_video_url,
+                lambda: pick_video(video_json, __picked_video_url=picked_video_url),  # type: ignore
+            ),
+        },
+        "Q": {"fn": sys.exit, "args": (0,)},
+    }
+
+    cmd: str = ask_user(
+        f"Action for video {video_json[picked_video_url]['id']!r} [(O)K (N)ew (T)humbnail (Q)uit] ",
+        ("O", "N", "T", "Q"),
+    )
+
+    if cmd == "O":
+        return picked_video_url
+
+    if cmd not in picked_video_subcommands:
+        sys.exit(die(f"{cmd!r} is not a command"))
+
+    return picked_video_subcommands[cmd]["fn"](*picked_video_subcommands[cmd]["args"])  # type: ignore
+
+
+def download_media(url: str, extracted_info: dict[str, Any]) -> int:
+    """Download media from youtube"""
+
+    ytdl_options: dict[str, Any] = YTDL_OPTS.copy()
+
+    if not url.strip():
+        return download_media(pick_video(extracted_info), extracted_info)
+
+    formats: set = set()
+
+    for format_spec in extracted_info["formats"]:
+        try:
+            if format_spec["filesize"] is None:
+                continue
+
+            formats.add(
+                (format_spec["ext"], format_spec["filesize"], format_spec["format"])
+            )
+        except KeyError:
+            pass
+
+    try:
+        user_format: tuple[str, str] = (
+            FzfPrompt()
+            .prompt(("  ".join((str(fmt) for fmt in formt)) for formt in formats))[0]
+            .split()
+        )
+        ytdl_options["format"] = user_format[0]
+    except (ProcessExecutionError, KeyError):
+        sys.exit(die("URL cannot be empty"))
+
+    debug(f"Downloading {url!r} in {ytdl_options['format']!r} format")
+
+    def update_progress_bar(response: dict[str, Any]) -> None:
+        try:
+            percent: int = int(
+                100 * response["downloaded_bytes"] / response["total_bytes"]
+            )
+            sys.stdout.write(
+                f"\rDownloading: \
+{(response['downloaded_bytes'] / 1024 / 1024):.2f}MB / \
+{(response['total_bytes'] / 1024 / 1024):.2f}MB \
+{'[' + ('#' * (percent // 2)) + (' ' * (50 - (percent // 2))) + ']'} \
+{percent}%"
+            )
+        except KeyError:
+            pass
+
+    ytdl_options["progress_hooks"] = [update_progress_bar]
+
+    with YoutubeDL(ytdl_options) as ytdl:
+        try:
+            ytdl.download([url])
+        except DownloadError as dl_error:
+            die(f"Download failed: {dl_error}")
+
+            if ask_user("Do you want to retry? [(Y)es (N)o] ", ("Y", "N")) != "Y":
+                sys.exit(die("Exiting due to download failure"))
+
+            if (
+                ask_user("Do you want to restart all over? [(Y)es (N)o] ", ("Y", "N"))
+                == "Y"
+            ):
+                raise RestartProgramError from dl_error
+
+            if (
+                ask_user("Do you want to use the same URL? [(Y)es (N)o] ", ("Y", "N"))
+                == "Y"
+            ):
+                return download_media(url, extracted_info)
+
+            return download_media("", extracted_info)
+
+        print()
+        debug("Finished downloading")
+
+    return os.EX_OK
+
+
+def play_url(url: str) -> int:
+    """Play a URL in MPV"""
+
+    url_mpv: MPV = new_mpv_client()
+    url_mpv.keep_open = True
+
+    video: bool = True
+
+    if ask_user("Enable video? [(Y)es (N)o] ", ("Y", "N")) == "N":
+        url_mpv.video = "no"
+        video = False
+
+    url_mpv.play(url)
+
+    if not video:
+        stdscr = curses.initscr()
+        curses.cbreak()
+        stdscr.keypad(True)
+        stdscr.clear()
+        curses.noecho()
+
+        stdscr.addstr(
+            0, 10, f"Playing {url!r}, press q to quit or any other key to input to MPV"
+        )
+        stdscr.refresh()
+
+        key = ""
+
+        def thread(mpv_obj: MPV) -> None:
+            """Clean up after video is finished"""
+            try:
+                is_finished: bool = bool(mpv_obj.eof_reached)
+
+                while not is_finished:
+                    is_finished = bool(mpv_obj.eof_reached)
+
+                mpv_obj.terminate()
+                del mpv_obj
+            except MPVShutdownError:
+                pass
+
+            curses.endwin()
+            debug("Closing application -- video finished")
+            os._exit(os.EX_OK)  # pylint: disable=W0212
+
+        Thread(target=thread, args=(url_mpv,)).start()
+        while key != "q":
+            if url_mpv.eof_reached:
+                break
+
+            key = chr(stdscr.getch())
+            url_mpv.keydown(key)
+            url_mpv.keyup(key)
+    else:
+        url_mpv.wait_for_shutdown()
+
+    return os.EX_OK
+
+
+def main() -> int:
+    """Entry/main function"""
+
+    # Initial config #
+
+    if not os.path.exists(CONFIG_FILE):
+        make_new_config()
+
+    # User history #
+
+    user_config: ConfigParser = ConfigParser()
+    user_config.read(CONFIG_FILE)
+
+    # Shared config #
+
+    SHARED_CONFIG["print_debug"] = user_config["messages"].getboolean("print_debug")
+
+    # GNU readline setup #
+
+    os.makedirs(
+        os.path.expanduser(os.path.dirname(user_config["history"]["history_file"])),
+        exist_ok=True,
+    )
+
+    histfile: str = os.path.expanduser(user_config["history"]["history_file"])
+
+    if not os.path.exists(histfile):
+        with open(histfile, "w", encoding="utf-8") as hist:
+            hist.write("")
+
+    readline.read_history_file(histfile)
+
+    readline.parse_and_bind("tab: complete")
+
+    fn_register(readline.write_history_file, histfile)
+    fn_register(readline.read_history_file, histfile)
+
+    readline.set_history_length(int(user_config["history"]["history_length"]))
+
+    # Main functionality #
+
+    final: dict[str, Any] = {}
+    threads: list[Thread] = []
+
+    query: str = (
+        ask_user("Search query: ")
+        if len(sys.argv) < 2
+        else " ".join(sys.argv[1:]).strip()
+    )
+
+    debug("Looking up videos")
+    videos: map = map(  # pylint: disable=W0141
+        lambda url: f"{user_config['resources']['youtube_url'].rstrip('/')}{url}",
+        set(
+            regex_find_all(
+                r"/watch\?v=.{11}",
+                requests.get(
+                    f"{user_config['resources']['search_url'].rstrip('/')}?q={urlencode(query)}",
+                    allow_redirects=True,
+                ).text,
+            )
+        ),
+    )
+
+    try:
+        next(videos)
+    except StopIteration:
+        return die("No videos found")
+
+    if os.environ.get("CHECK") == "run":
+        return 0
+
+    debug("Gathering video info")
+    for video in videos:
+
+        def thread(url: str, output: dict[str, Any]) -> None:
+            """Output info about a youtube video to output"""
+
+            try:
+                with YoutubeDL(YTDL_OPTS) as ytd:
+                    output[url] = ytd.extract_info(url, download=False)
+
+                debug(f"Fetching info for video {url[-11:]!r} finished")
+            except (DownloadError, KeyboardInterrupt):
+                die(f"Failed to fetch info for {url!r}")
+
+        thread_obj = Thread(target=thread, args=(video, final))
+
+        threads.append(thread_obj)
+        thread_obj.start()
+
+    # Wait for all threads to be finished #
+
+    for awaiting_thread in threads:
+        awaiting_thread.join()
+
+    # Main videos and functionality #
+
+    try:
+        url: str = pick_video(final)
+
+        action: str = ask_user(
+            "What do you want to do with the video? [(D)ownload (W)atch] ", ("D", "W")
+        )
+
+        if action == "D":
+            return download_media(url, final[url])
+
+        return play_url(url)
+    except RestartProgramError:
+        return main()
+
+
+if __name__ == "__main__":
+    assert (
+        main.__annotations__.get("return") is int
+    ), "main() should return an integer"  # pylint: disable=R6201
+    assert os.name in {  # pylint: disable=R6201
+        "posix",
+        "darwin",
+        "mac",
+    }, "This app is meant for linux and other POSIX complient operating systems"
+
+    RES: int = os.EX_OK
+
+    try:
+        RES = main()
+    except (KeyboardInterrupt, ProcessExecutionError):
+        pass
+    except Exception as error:  # pylint: disable=W0703
+        RES = 1
+
+        with open("traceback.md", "w", encoding="utf-8") as tbf:
+            tbf.write("```py\n")
+            print_latest_traceback(file=tbf)
+            tbf.write("```\n")
+
+            print(
+                f"{Style.BRIGHT}*** traceback written in {tbf.name} ***{Style.RESET_ALL}"
+            )
+
+        die(f"{error.__class__.__name__}: {error}")
+        if ask_user("Make new config? [(Y)es (N)o] ", ("Y", "N")) == "Y":
+            make_new_config()
+
+    # Cleanup #
+
+    sys.exit(RES)

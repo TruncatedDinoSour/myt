@@ -1,0 +1,82 @@
+.TH MYT "1" "January 2022" "Myt" "General Commands Manual"
+
+
+.SH NAME
+
+myt \- a CLI tool for searching and watching videos on youtube with no spyware and MPV and yt-dlp
+
+
+.SH SYNOPSIS
+
+.B myt
+[\fIQUERY\fR]
+
+
+.SH "CONFIG FILE"
+
+The configuration file is located in \fI~/.config/myt.conf\fR and it's generated
+automatically on first startup of \fImyt(1)\fR
+
+The file is written in dos INI (see \fImyt(1)\fR "SEE ALSO" section)
+
+The current config keys are:
+
+.TS
+tab (@);
+l lx.
+history@T{
+    GNU \fIreadline(1)\fR history contol
+T}
+resources@T{
+    URL and resource fetching control
+T}
+messages@T{
+    Logging messages contol
+T}
+.TE
+
+Config headers:
+
+.PP
+\fBHISTORY\fR
+.br
+
+\fIhistory_file\fR \-\- This value controls where the history file goes, by default it's \fI~/.cache/.myt_history\fR
+
+\fIhistory_length\fR \-\- This value controls how long the history file is, by default it's \fI1000\fR
+
+.PP
+\fBRESOURCES\fR
+.br
+
+\fIyoutube_url\fR \-\- This value controls the youtube URL, it must have a \fI/watch\fR route which accepts \fIv\fR as a GET parameter which is the \fIvideo ID\fR
+
+\fIsearch_url\fR \-\- This value controls the search URL, it has to return a page which has URLs which have the video URL in the page like or return a list of something like \fI/watch?v=pRKqlw0DaDI\fR, this URL also has to accept a \fIq\fR GET paramter which is the search query
+
+.PP
+\fBMESSAGES\fR
+.br
+
+\fIprint_debug\fR \-\- This value controls if it should print debug messages (\fIyes\fR) or not (\fIno\fR)
+
+
+.SH "SEE ALSO"
+
+DOS INI format: \fIhttps://en.wikipedia.org/wiki/INI_file\fR
+
+Yt\-dlp: \fIhttps://github.com/yt\-dlp/yt\-dlp\fR
+
+MPV: \fIhttps://mpv.io/\fR
+
+MPV man page: \fImpv(1)\fR
+
+
+.SH AUTHOR
+
+Written by Ari Archer <ari@mail.ari-web.xyz>
+
+
+.SH "REPORTING BUGS"
+
+Report any bugs or feature requests to https://ari-web.xyz/gh/myt issues
+

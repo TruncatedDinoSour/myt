@@ -1,0 +1,30 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                python-version: [3.9]
+
+        steps:
+            - uses: actions/checkout@v2
+
+            - name: Set up Python ${{ matrix.python-version }}
+              uses: actions/setup-python@v1
+              with:
+                  python-version: ${{ matrix.python-version }}
+
+            - name: Install tools
+              run: |
+                  python3 -m pip install --user --upgrade -r requirements.txt -r requirements.dev.txt
+
+            - name: Test source code with linters, formatters, compilers, etc.
+              run: |
+                  sh scripts/test.sh
