@@ -2,6 +2,7 @@ mypy
 isort
 flake8
 pycodestyle
+black
 pyflakes
 pylint
 
