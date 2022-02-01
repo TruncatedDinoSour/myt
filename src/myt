@@ -27,7 +27,7 @@ from plumbum import ProcessExecutionError  # type: ignore
 from pyfzf import FzfPrompt  # type: ignore
 from yt_dlp import DownloadError, YoutubeDL  # type: ignore
 
-__version__ = "0.5"
+__version__ = "0.6"
 __author__ = "Ari Archer <ari@mail.ari-web.xyz>"
 __homepage__ = "https://ari-web.xyz/gh/myt"
 __license__ = "ArAr2"
@@ -413,9 +413,7 @@ def main() -> int:
     threads: list[Thread] = []
 
     query: str = (
-        ask_user("Search query: ")
-        if len(sys.argv) < 2
-        else " ".join(sys.argv[1:]).strip()
+        input("Search query: ") if len(sys.argv) < 2 else " ".join(sys.argv[1:]).strip()
     )
 
     debug("Looking up videos")
