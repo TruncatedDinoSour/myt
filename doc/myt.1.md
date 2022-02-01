@@ -3,7 +3,7 @@
 Myt, January 2022
 
 ```
-myt [QUERY]
+myt [--version] [QUERY]
 ```
 
 
