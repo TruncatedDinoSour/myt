@@ -27,7 +27,7 @@ from plumbum import ProcessExecutionError  # type: ignore
 from pyfzf import FzfPrompt  # type: ignore
 from yt_dlp import DownloadError, YoutubeDL  # type: ignore
 
-__version__ = "0.3"
+__version__ = "0.4"
 __author__ = "Ari Archer <ari@mail.ari-web.xyz>"
 __homepage__ = "https://ari-web.xyz/gh/myt"
 __license__ = "ArAr2"

@@ -3,7 +3,7 @@
 [ "$DEBUG" ] && set -x
 set -e
 
-. "${PREFIX}scripts/source/logging.sh"
+. "${SSPREFIX}scripts/source/logging.sh"
 
 main() {
     MAIN="${MAIN:-src/myt}"
@@ -53,7 +53,7 @@ main() {
     CHECK='run' "$MAIN" 'Hello, world' || warn 'Ignoring errors'
 
     log 'Checking if documentation builds'
-    [ ! "$NO_DOC" ] && sh "${PREFIX}scripts/doc.sh"
+    [ ! "$NO_DOC" ] && sh "${SSPREFIX}scripts/doc.sh"
 
     log "$(tput bold)Congratulations, all tests passed"
 }

@@ -3,7 +3,7 @@
 [ "$DEBUG" ] && set -x
 set -e
 
-. "${PREFIX}scripts/source/logging.sh"
+. "${SSPREFIX}scripts/source/logging.sh"
 
 main() {
     command -v man-to-md >/dev/null || (echo 'Please install man-to-md: https://github.com/mle86/man-to-md or https://ari-web.xyz/gentooatom/app-misc/man-to-md' && exit 1)
@@ -12,11 +12,11 @@ main() {
     mkdir -p doc/
 
     log 'Generating pydoc documentation'
-    python3 -m pydoc -w "${PREFIX}src/myt"
+    python3 -m pydoc -w "${SPREFIX}src/myt"
     mv myt.html doc/
 
     log 'Generating markdown from man page'
-    man-to-md <"${PREFIX}doc/myt.1" >"${PREFIX}doc/myt.1.md"
+    man-to-md <"${DPREFIX}doc/myt.1" >"${DPREFIX}doc/myt.1.md"
 }
 
 main "$@"

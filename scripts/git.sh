@@ -3,7 +3,7 @@
 [ "$DEBUG" ] && set -x
 set -e
 
-. "${PREFIX}scripts/source/logging.sh"
+. "${SSPREFIX}scripts/source/logging.sh"
 
 ask_y() {
     printf "%s? [y/n] " "$1"
@@ -18,12 +18,13 @@ main() {
     ask_y 'Did you update the dependencies in requirements.txt and/or requirements.dev.txt'
     ask_y 'Did you update the README.md if needed'
     ask_y 'Did you update the man page in doc/myt.1'
+    ask_y 'Did you update SECURITY.md'
 
     log 'Running tests'
-    sh "${PREFIX}scripts/test.sh"
+    sh "${SSPREFIX}scripts/test.sh"
 
     log 'Generating documentation'
-    sh "${PREFIX}scripts/doc.sh"
+    sh "${SSPREFIX}scripts/doc.sh"
 
     log 'Commiting changes and pushing'
     git add -A
