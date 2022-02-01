@@ -1,0 +1,8 @@
+[MESSAGES CONTROL]
+disable = line-too-long,broad-except,C0301,R1260,W0717,W0149,W0141,W0703,W0212
+max-complexity = 20
+
+[FORMAT]
+max-line-length = 120
+max-complexity = 20
+

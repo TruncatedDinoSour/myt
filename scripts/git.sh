@@ -3,11 +3,29 @@
 [ "$DEBUG" ] && set -x
 set -e
 
+. "${PREFIX}scripts/source/logging.sh"
+
+ask_y() {
+    printf "%s? [y/n] " "$1"
+    read -r yn
+
+    [ "$yn" != 'y' ] && exit
+    return 0
+}
+
 main() {
-    command -v man-to-md >/dev/null || (echo 'Please install man-to-md: https://github.com/mle86/man-to-md or https://ari-web.xyz/gentooatom/app-misc/man-to-md' && exit 1)
+    ask_y 'If you are about to release, did you update the __version__ variable in src/myt'
+    ask_y 'Did you update the dependencies in requirements.txt and/or requirements.dev.txt'
+    ask_y 'Did you update the README.md if needed'
+    ask_y 'Did you update the man page in doc/myt.1'
 
-    man-to-md <"${PREFIX}doc/myt.1" >"${PREFIX}doc/myt.1.md"
+    log 'Running tests'
+    sh "${PREFIX}scripts/test.sh"
 
+    log 'Generating documentation'
+    sh "${PREFIX}scripts/doc.sh"
+
+    log 'Commiting changes and pushing'
     git add -A
     git commit -sa
     git push -u origin "$(git branch --show-current)"

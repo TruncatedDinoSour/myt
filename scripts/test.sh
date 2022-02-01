@@ -3,19 +3,7 @@
 [ "$DEBUG" ] && set -x
 set -e
 
-([ ! "$NO_COLOUR" ] && command -v tput >/dev/null) || tput() { printf ''; }
-
-GREEN=$(tput setaf 2)
-YELLOW=$(tput setaf 3)
-RESET=$(tput sgr0)
-
-log() {
-    printf "${GREEN}**${RESET} %s\n" "$1"
-}
-
-warn() {
-    printf "${YELLOW}**${RESET} %s\n" "$1"
-}
+. "${PREFIX}scripts/source/logging.sh"
 
 main() {
     MAIN="${MAIN:-src/myt}"
@@ -29,7 +17,7 @@ main() {
         --disallow-incomplete-defs --check-untyped-defs \
         --disallow-untyped-decorators --pretty --show-traceback \
         --no-warn-unused-ignores --follow-imports=error --namespace-packages \
-        --python-version 3.9
+        --python-version "$(head -n 1 runtime.txt)"
 
     log 'Checking import sorting'
     python3 -m isort -c "$MAIN"
@@ -47,13 +35,13 @@ main() {
     python3 -m black --check "$MAIN"
 
     log "Checking complexity ($JOBS jobs)"
-    python3 -m flake8 --jobs "$JOBS" --max-complexity 20 "$MAIN"
+    python3 -m flake8 --jobs "$JOBS" "$MAIN"
 
     log 'Checking for errors'
-    pyflakes "$MAIN"
+    python3 -m pyflakes "$MAIN"
 
     log "Linting file ($JOBS jobs)"
-    python3 -m pylint --enable-all-extensions --disable=C0301,R1260,W0717,W0149 -j "$(nproc --all)" "$MAIN"
+    python3 -m pylint --enable-all-extensions --jobs "$(nproc --all)" "$MAIN"
 
     log 'Checking if can compile'
     python3 -c "import ast; ast.parse(open('$MAIN', 'r', encoding='utf-8').read())"
@@ -63,6 +51,9 @@ main() {
 
     log 'Checking if it runs'
     CHECK='run' "$MAIN" 'Hello, world' || warn 'Ignoring errors'
+
+    log 'Checking if documentation builds'
+    [ ! "$NO_DOC" ] && sh "${PREFIX}scripts/doc.sh"
 
     log "$(tput bold)Congratulations, all tests passed"
 }

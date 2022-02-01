@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
-"""A menu to pick youtube videos"""
+"""A CLI tool for searching and watching videos on youtube with no spyware and MPV and yt-dlp"""
 
 import curses
 import logging
@@ -27,6 +27,13 @@ from plumbum import ProcessExecutionError  # type: ignore
 from pyfzf import FzfPrompt  # type: ignore
 from yt_dlp import DownloadError, YoutubeDL  # type: ignore
 
+__version__ = "0.2"
+__author__ = "Ari Archer <ari@mail.ari-web.xyz>"
+__homepage__ = "https://ari-web.xyz/gh/myt"
+__license__ = "ArAr2"
+__license_note__ = "https://files.ari-web.xyz/files/ArAr.ari-archer.LICENSE"
+
+
 MIN_PYTHON = (3, 8)
 
 if sys.version_info < MIN_PYTHON:
@@ -50,6 +57,9 @@ DEFAULT_CONFIG: list[str] = [
     "[messages]",
     "print_debug = yes",
     "",
+    "[config]",
+    "readline_config = ~/.inputrc",
+    "",
 ]
 
 SHARED_CONFIG: dict[str, Any] = {}
@@ -58,6 +68,16 @@ YTDL_LOGGER: logging.Logger = logging.getLogger("ytdl-ignore")
 YTDL_LOGGER.disabled = True
 
 YTDL_OPTS: dict[str, Any] = {"logger": YTDL_LOGGER}
+
+
+def print_version_and_exit() -> None:
+    """Print version and exit"""
+
+    print(f"Myt version {__version__}")
+    sys.exit()
+
+
+ARGS: dict[str, Any] = {"--version": print_version_and_exit}
 
 
 class RestartProgramError(Exception):
@@ -313,9 +333,12 @@ def play_url(url: str) -> int:
 
             curses.endwin()
             debug("Closing application -- video finished")
-            os._exit(os.EX_OK)  # pylint: disable=W0212
+            os._exit(os.EX_OK)
 
-        Thread(target=thread, args=(url_mpv,)).start()
+        thread_obj: Thread = Thread(target=thread, args=(url_mpv,))
+        thread_obj.daemon = False
+        thread_obj.start()
+
         while key != "q":
             if url_mpv.eof_reached:
                 break
@@ -329,8 +352,18 @@ def play_url(url: str) -> int:
     return os.EX_OK
 
 
+def parse_args() -> None:
+    """Parse argv[1] arguments"""
+
+    if sys.argv[1] in ARGS:
+        ARGS[sys.argv[1]]()
+
+
 def main() -> int:
     """Entry/main function"""
+
+    # Args #
+    parse_args()
 
     # Initial config #
 
@@ -362,6 +395,9 @@ def main() -> int:
     readline.read_history_file(histfile)
 
     readline.parse_and_bind("tab: complete")
+    rl_config: str = os.path.expanduser(user_config["config"]["readline_config"])
+    if os.path.exists(rl_config):
+        readline.read_init_file(rl_config)
 
     fn_register(readline.write_history_file, histfile)
     fn_register(readline.read_history_file, histfile)
@@ -380,7 +416,7 @@ def main() -> int:
     )
 
     debug("Looking up videos")
-    videos: map = map(  # pylint: disable=W0141
+    videos: map = map(
         lambda url: f"{user_config['resources']['youtube_url'].rstrip('/')}{url}",
         set(
             regex_find_all(
@@ -416,6 +452,7 @@ def main() -> int:
                 die(f"Failed to fetch info for {url!r}")
 
         thread_obj = Thread(target=thread, args=(video, final))
+        thread_obj.daemon = False
 
         threads.append(thread_obj)
         thread_obj.start()
@@ -443,10 +480,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    assert (
-        main.__annotations__.get("return") is int
-    ), "main() should return an integer"  # pylint: disable=R6201
-    assert os.name in {  # pylint: disable=R6201
+    assert main.__annotations__.get("return") is int, "main() should return an integer"
+    assert os.name in {
         "posix",
         "darwin",
         "mac",
@@ -458,7 +493,7 @@ if __name__ == "__main__":
         RES = main()
     except (KeyboardInterrupt, ProcessExecutionError):
         pass
-    except Exception as error:  # pylint: disable=W0703
+    except Exception as error:
         RES = 1
 
         with open("traceback.md", "w", encoding="utf-8") as tbf:

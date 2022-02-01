@@ -27,4 +27,4 @@ jobs:
 
             - name: Test source code with linters, formatters, compilers, etc.
               run: |
-                  NO_COLOUR=1 sh scripts/test.sh
+                  NO_DOC=1 NO_COLOUR=1 sh scripts/test.sh

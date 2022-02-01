@@ -31,6 +31,8 @@
 -   Python black -- https://pypi.org/project/black/
 -   Python pyflakes -- https://pypi.org/project/pyflakes/
 -   Python pylint -- https://pypi.org/project/pylint/
+-   Python pydoc -- https://docs.python.org/3/library/pydoc.html
+-   man-to-md -- https://github.com/mle86/man-to-md or https://ari-web.xyz/gentooatom/app-misc/man-to-md
 
 To install them:
 
@@ -45,6 +47,8 @@ Or
 # Install all dependencies
 python3 -m pip install --user --upgrade -r requirements.txt -r requirements.dev.txt
 ```
+
+After that install the extra non-python dependencies like man-to-md
 
 Optional:
 

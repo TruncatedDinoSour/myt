@@ -139,3 +139,7 @@ cython_debug/
 *.webm
 *.m4a
 
+# Don't ignore
+!.pylintrc
+!.flake8
+

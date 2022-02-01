@@ -30,6 +30,9 @@ T}
 messages@T{
     Logging messages contol
 T}
+config@T{
+    Configuration file locations
+T}
 .TE
 
 Config headers:
@@ -54,6 +57,11 @@ _search_url_ -- This value controls the search URL, it has to return a page whic
 _print_debug_ -- This value controls if it should print debug messages (_yes_) or not (_no_)
 
 
+**CONFIG**  
+
+_readline_config_ -- This value controls where the optional GNU readline config lives, by default it's _~/.inputrc_
+
+
 
 # See Also
 
@@ -66,12 +74,14 @@ MPV: _https://mpv.io/_
 
 MPV man page: _mpv(1)_
 
+GNU readline: _https://tiswww.case.edu/php/chet/readline/rltop.html_
+
 
 
 # Author
 
 
-Written by Ari Archer &lt;[ari@mail.ari-web](mailto:ari@mail.ari-web).xyz&gt;
+Written by Ari Archer &lt;**[ari@mail.ari-web](mailto:ari@mail.ari-web).xyz\fB&gt; (\fIhttps://ari-web.xyz/**)
 
 
 
