@@ -6,6 +6,7 @@
 -   If you add anything new please document it in `doc/`, the [man page](/doc/myt.1) and/or the README.md
 -   Make sure to update or add if necessary development dependencies in `requirements.dev.txt` and stuff that is 100% required in `requirements.txt`
 -   If you need to add more tests to the `test.sh` script, but make sure to follow the same pattern of
+-   Make sure to commit using `scripts/git.sh` or at least rebuild the markdown page with [man-to-md](https://github.com/mle86/man-to-md)
 
 ```bash
 log 'Doing something here'
