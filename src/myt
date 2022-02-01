@@ -27,7 +27,7 @@ from plumbum import ProcessExecutionError  # type: ignore
 from pyfzf import FzfPrompt  # type: ignore
 from yt_dlp import DownloadError, YoutubeDL  # type: ignore
 
-__version__ = "0.4"
+__version__ = "0.5"
 __author__ = "Ari Archer <ari@mail.ari-web.xyz>"
 __homepage__ = "https://ari-web.xyz/gh/myt"
 __license__ = "ArAr2"
@@ -354,6 +354,9 @@ def play_url(url: str) -> int:
 
 def parse_args() -> None:
     """Parse argv[1] arguments"""
+
+    if len(sys.argv) < 2:
+        return
 
     if sys.argv[1] in ARGS:
         ARGS[sys.argv[1]]()
