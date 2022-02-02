@@ -133,6 +133,9 @@ cython_debug/
 #   intended to run in multiple environments; otherwise, check them in:
 !.python-version
 
+# JSON dump files
+/dump.json
+
 # Misc media
 *.mp4
 *.mp3

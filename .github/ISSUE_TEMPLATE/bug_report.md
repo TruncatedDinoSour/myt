@@ -37,6 +37,9 @@ If applicable, add screenshots to help explain your problem.
 -   MPV installation source
 -   Output for `myt --version` [e.g. `Myt version 0.1`]
 
+**Contents of traceback.md**
+Dump the generated `traceback.md` file here if there is one
+
 **Your configuration file**
 
 -   Where is it placed: [e.g. ~/.config/myt.conf]

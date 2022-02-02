@@ -12,7 +12,9 @@ import urllib
 import warnings
 from atexit import register as fn_register
 from configparser import ConfigParser
+from datetime import datetime
 from re import findall as regex_find_all
+from subprocess import PIPE, Popen
 from threading import Thread
 from traceback import print_exc as print_latest_traceback
 from typing import Any, Optional
@@ -27,7 +29,7 @@ from plumbum import ProcessExecutionError  # type: ignore
 from pyfzf import FzfPrompt  # type: ignore
 from yt_dlp import DownloadError, YoutubeDL  # type: ignore
 
-__version__ = "0.6"
+__version__ = "0.7"
 __author__ = "Ari Archer <ari@mail.ari-web.xyz>"
 __homepage__ = "https://ari-web.xyz/gh/myt"
 __license__ = "ArAr2"
@@ -67,7 +69,15 @@ SHARED_CONFIG: dict[str, Any] = {}
 YTDL_LOGGER: logging.Logger = logging.getLogger("ytdl-ignore")
 YTDL_LOGGER.disabled = True
 
-YTDL_OPTS: dict[str, Any] = {"logger": YTDL_LOGGER}
+YTDL_OPTS: dict[str, Any] = {
+    "logger": YTDL_LOGGER,
+    "cachedir": "/tmp/myt",
+    "noplaylist": True,
+    "addmetadata": True,
+    "postprocessors": [
+        {"key": "FFmpegMetadata"},
+    ],
+}
 
 
 def print_version_and_exit() -> None:
@@ -161,6 +171,16 @@ def view_thumbnail(video_json: dict[str, Any], video_url: str, next_fn: Any) -> 
     return next_fn()
 
 
+def show_in_less(text: str, next_fn: Any) -> Any:
+    """Show text in less(1)"""
+
+    with Popen("less --incsearch".split(), stdin=PIPE) as pipe:
+        if pipe.stdin is not None:
+            pipe.stdin.write(text.encode())
+
+    return next_fn()
+
+
 def pick_video(
     video_json: dict[str, Any], __picked_video_url: Optional[str] = None
 ) -> str:
@@ -174,13 +194,25 @@ def pick_video(
             FzfPrompt()
             .prompt(
                 (
-                    f"{url} | {video_json[url]['title']} | {video_json[url]['channel_id']}"
+                    f"{url} | \
+uploaded in {datetime.strptime(video_json[url]['upload_date'], '%Y%m%d').strftime('%c')} | \
+duration: {(video_json[url]['duration'] / 60):.2f} minutes | \
+{video_json[url]['fulltitle']} | \
+{video_json[url]['uploader']} | \
+tags: {', '.join(video_json[url]['tags']) or 'none'}"
                     for url in video_json
+                    if all(
+                        video_json[url].get(req_property)
+                        for req_property in (
+                            "upload_date",
+                            "duration",
+                        )
+                    )
                 )
             )[0]
             .split(" ", 1)[0]
         )
-        if __picked_video_url is None
+        if not __picked_video_url
         else __picked_video_url
     )
 
@@ -195,11 +227,18 @@ def pick_video(
             ),
         },
         "Q": {"fn": sys.exit, "args": (0,)},
+        "D": {
+            "fn": show_in_less,
+            "args": (
+                video_json[picked_video_url]["description"],
+                lambda: pick_video(video_json, __picked_video_url=picked_video_url),  # type: ignore
+            ),
+        },
     }
 
     cmd: str = ask_user(
-        f"Action for video {video_json[picked_video_url]['id']!r} [(O)K (N)ew (T)humbnail (Q)uit] ",
-        ("O", "N", "T", "Q"),
+        f"Action for video {video_json[picked_video_url]['id']!r} [(O)K (N)ew (T)humbnail (Q)uit (D)escription] ",
+        tuple(picked_video_subcommands.keys()) + ("O",),
     )
 
     if cmd == "O":
@@ -223,9 +262,6 @@ def download_media(url: str, extracted_info: dict[str, Any]) -> int:
 
     for format_spec in extracted_info["formats"]:
         try:
-            if format_spec["filesize"] is None:
-                continue
-
             formats.add(
                 (format_spec["ext"], format_spec["filesize"], format_spec["format"])
             )
@@ -306,20 +342,14 @@ def play_url(url: str) -> int:
 
     if not video:
         stdscr = curses.initscr()
+
         curses.cbreak()
-        stdscr.keypad(True)
         stdscr.clear()
         curses.noecho()
 
-        stdscr.addstr(
-            0, 10, f"Playing {url!r}, press q to quit or any other key to input to MPV"
-        )
-        stdscr.refresh()
-
-        key = ""
-
         def thread(mpv_obj: MPV) -> None:
             """Clean up after video is finished"""
+
             try:
                 is_finished: bool = bool(mpv_obj.eof_reached)
 
@@ -339,14 +369,30 @@ def play_url(url: str) -> int:
         thread_obj.daemon = False
         thread_obj.start()
 
+        key = ""
+
         while key != "q":
             if url_mpv.eof_reached:
                 break
 
-            key = chr(stdscr.getch())
+            try:
+                stdscr.addstr(
+                    0,
+                    0,
+                    f"Playing {url!r}, press q to quit or any other key (currently {key!r}) to input to MPV",
+                )
+
+                key = chr(stdscr.getch())
+            except (ValueError, curses.error):
+                continue
+
             url_mpv.keydown(key)
             url_mpv.keyup(key)
+
+            stdscr.refresh()
+            stdscr.clear()
     else:
+        print(f"Playing video {url!r}")
         url_mpv.wait_for_shutdown()
 
     return os.EX_OK
@@ -391,9 +437,12 @@ def main() -> int:
 
     histfile: str = os.path.expanduser(user_config["history"]["history_file"])
 
+    readline.set_history_length(int(user_config["history"]["history_length"]))
+    fn_register(readline.write_history_file, histfile)
+    fn_register(readline.read_history_file, histfile)
+
     if not os.path.exists(histfile):
-        with open(histfile, "w", encoding="utf-8") as hist:
-            hist.write("")
+        readline.write_history_file(histfile)
 
     readline.read_history_file(histfile)
 
@@ -402,19 +451,17 @@ def main() -> int:
     if os.path.exists(rl_config):
         readline.read_init_file(rl_config)
 
-    fn_register(readline.write_history_file, histfile)
-    fn_register(readline.read_history_file, histfile)
-
-    readline.set_history_length(int(user_config["history"]["history_length"]))
+    if readline.get_current_history_length() >= readline.get_history_length():
+        readline.clear_history()
+        readline.write_history_file(histfile)
 
     # Main functionality #
 
     final: dict[str, Any] = {}
     threads: list[Thread] = []
 
-    query: str = (
-        input("Search query: ") if len(sys.argv) < 2 else " ".join(sys.argv[1:]).strip()
-    )
+    if not (query := (" ".join(sys.argv[1:]) or input("Search query: ")).strip()):
+        return die("Empty query is not valid")
 
     debug("Looking up videos")
     videos: map = map(
@@ -492,7 +539,7 @@ if __name__ == "__main__":
 
     try:
         RES = main()
-    except (KeyboardInterrupt, ProcessExecutionError):
+    except (KeyboardInterrupt, EOFError, ProcessExecutionError):
         pass
     except Exception as error:
         RES = 1

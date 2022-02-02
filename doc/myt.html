@@ -6,7 +6,7 @@
 <table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
 <tr bgcolor="#7799ee">
 <td valign=bottom>&nbsp;<br>
-<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong>myt</strong></big></big> (version 0.6)</font></td
+<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong>myt</strong></big></big> (version 0.7)</font></td
 ><td align=right valign=bottom
 ><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/home/ari/Ari/coding/projects_/myt/src/myt">/home/ari/Ari/coding/projects_/myt/src/myt</a></font></td></tr></table>
     <p><tt>A&nbsp;CLI&nbsp;tool&nbsp;for&nbsp;searching&nbsp;and&nbsp;watching&nbsp;videos&nbsp;on&nbsp;youtube&nbsp;with&nbsp;no&nbsp;spyware&nbsp;and&nbsp;MPV&nbsp;and&nbsp;yt-dlp</tt></p>
@@ -131,6 +131,7 @@ Register&nbsp;a&nbsp;function&nbsp;to&nbsp;be&nbsp;executed&nbsp;upon&nbsp;norma
  <dl><dt><a name="-pick_video"><strong>pick_video</strong></a>(video_json: dict[str, typing.Any], __picked_video_url: Optional[str] = None) -&gt; str</dt><dd><tt>Pick&nbsp;a&nbsp;video</tt></dd></dl>
  <dl><dt><a name="-play_url"><strong>play_url</strong></a>(url: str) -&gt; int</dt><dd><tt>Play&nbsp;a&nbsp;URL&nbsp;in&nbsp;MPV</tt></dd></dl>
  <dl><dt><a name="-print_version_and_exit"><strong>print_version_and_exit</strong></a>() -&gt; None</dt><dd><tt>Print&nbsp;version&nbsp;and&nbsp;exit</tt></dd></dl>
+ <dl><dt><a name="-show_in_less"><strong>show_in_less</strong></a>(text: str, next_fn: Any) -&gt; Any</dt><dd><tt>Show&nbsp;text&nbsp;in&nbsp;less(1)</tt></dd></dl>
  <dl><dt><a name="-view_thumbnail"><strong>view_thumbnail</strong></a>(video_json: dict[str, typing.Any], video_url: str, next_fn: Any) -&gt; Any</dt><dd><tt>View&nbsp;thumbnail&nbsp;in&nbsp;default&nbsp;image&nbsp;viewer</tt></dd></dl>
 </td></tr></table><p>
 <table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
@@ -146,10 +147,11 @@ Register&nbsp;a&nbsp;function&nbsp;to&nbsp;be&nbsp;executed&nbsp;upon&nbsp;norma
 <strong>Fore</strong> = &lt;colorama.ansi.AnsiFore object&gt;<br>
 <strong>MIN_PYTHON</strong> = (3, 8)<br>
 <strong>Optional</strong> = typing.Optional<br>
+<strong>PIPE</strong> = -1<br>
 <strong>SHARED_CONFIG</strong> = {}<br>
 <strong>Style</strong> = &lt;colorama.ansi.AnsiStyle object&gt;<br>
 <strong>YTDL_LOGGER</strong> = &lt;Logger ytdl-ignore (WARNING)&gt;<br>
-<strong>YTDL_OPTS</strong> = {'logger': &lt;Logger ytdl-ignore (WARNING)&gt;}<br>
+<strong>YTDL_OPTS</strong> = {'addmetadata': True, 'cachedir': '/tmp/myt', 'logger': &lt;Logger ytdl-ignore (WARNING)&gt;, 'noplaylist': True, 'postprocessors': [{'key': 'FFmpegMetadata'}]}<br>
 <strong>__annotations__</strong> = {'ARGS': dict[str, typing.Any], 'CONFIG_FILE': &lt;class 'str'&gt;, 'DEFAULT_CONFIG': list[str], 'SHARED_CONFIG': dict[str, typing.Any], 'YTDL_LOGGER': &lt;class 'logging.Logger'&gt;, 'YTDL_OPTS': dict[str, typing.Any]}<br>
 <strong>__homepage__</strong> = 'https://ari-web.xyz/gh/myt'<br>
 <strong>__license__</strong> = 'ArAr2'<br>
