@@ -21,10 +21,10 @@ main() {
     ask_y 'Did you update SECURITY.md'
 
     log 'Running tests'
-    sh "${SSPREFIX}scripts/test.sh"
+    [ ! "$nt" ] && sh "${SSPREFIX}scripts/test.sh"
 
     log 'Generating documentation'
-    sh "${SSPREFIX}scripts/doc.sh"
+    [ ! "$nd" ] && sh "${SSPREFIX}scripts/doc.sh"
 
     log 'Commiting changes and pushing'
     git add -A
