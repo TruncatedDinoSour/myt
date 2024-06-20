@@ -1,3 +1,4 @@
+# This repository has been migrated to the self-hosted ari-web Forgejo instance: <https://git.ari.lt/ari/myt>
 # Myt
 
 > A CLI tool for searching and watching videos on youtube with no spyware and MPV and yt-dlp
